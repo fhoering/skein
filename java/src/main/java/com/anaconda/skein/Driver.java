@@ -71,6 +71,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Stream;
 
 public class Driver {
 
@@ -318,15 +319,15 @@ public class Driver {
     return new Path(fs.getHomeDirectory(), ".skein/" + appId.toString());
   }
 
-  public Map<String, String> getApplicationLogs(
+  public Stream<LogMessage> getApplicationLogs(
       final ApplicationId appId, final String owner, String user)
       throws IOException, InterruptedException {
     if (user.isEmpty()) {
       return logClient.getLogs(appId, owner);
     } else {
       return UserGroupInformation.createProxyUser(user, ugi).doAs(
-          new PrivilegedExceptionAction<Map<String, String>>() {
-            public Map<String, String> run() throws IOException {
+          new PrivilegedExceptionAction<Stream<LogMessage>>() {
+            public Stream<LogMessage> run() throws IOException {
               return logClient.getLogs(appId, owner);
             }
           });
@@ -1082,11 +1083,18 @@ public class Driver {
         return;
       }
 
-      Map<String, String> logs;
+      Stream<LogMessage> logs;
       if (hasCompleted(report)) {
         try {
           logs = getApplicationLogs(
               report.getApplicationId(), report.getUser(), req.getUser());
+          CustomForEach.forEach(logs, (elem, breaker) -> {
+            if (elem == null) {
+              breaker.stop();
+            } else {
+              resp.onNext(Msg.LogsResponse.newBuilder().setKey(elem.getKey()).setData(elem.getData()).build());
+            }
+          });
         } catch (LogClient.LogClientException exc) {
           resp.onError(Status.INVALID_ARGUMENT
               .withDescription(exc.getMessage())
@@ -1108,7 +1116,6 @@ public class Driver {
             .asRuntimeException());
         return;
       }
-      resp.onNext(Msg.LogsResponse.newBuilder().putAllLogs(logs).build());
       resp.onCompleted();
     }
 

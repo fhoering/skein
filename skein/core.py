@@ -817,7 +817,16 @@ class Client(_ClientBase):
         ApplicationLogs<application_1526134340424_0012>
         """
         resp = self._call('getLogs', proto.LogsRequest(id=app_id, user=user))
-        return ApplicationLogs(app_id, dict(resp.logs))
+        logs = {}
+        for r in resp:
+            if r:
+                if r.key not in logs:
+                    logs[r.key] = r.data
+                else:
+                    logs[r.key] = logs[r.key] + r.data
+            else:
+                break
+        return ApplicationLogs(app_id, logs)
 
     def move_application(self, app_id, queue):
         """Move an application to a different queue.

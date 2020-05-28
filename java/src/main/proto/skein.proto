@@ -269,7 +269,7 @@ service Driver {
 
   rpc kill (KillRequest) returns (Empty);
 
-  rpc getLogs (LogsRequest) returns (LogsResponse);
+  rpc getLogs (LogsRequest) returns (stream LogsResponse);
 }
 
 
@@ -322,7 +322,8 @@ message LogsRequest {
 
 
 message LogsResponse {
-  map<string, string> logs = 2;
+  string key = 1;
+  string data = 2;
 }
 
 
